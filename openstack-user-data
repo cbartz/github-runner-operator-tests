@@ -2,8 +2,6 @@
 # https://microstack.run/docs/single-node
 
 package_update: true
-fqdn: openstack.example.com
-manage_etc_hosts: localhost
 packages:
 - jq
 - pipx
@@ -61,9 +59,6 @@ users:
   - name: ubuntu
     sudo: ALL=(ALL) NOPASSWD:ALL
     shell: /bin/bash
-    ssh_authorized_keys:
-      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBFgYNZOrHQWgirA7Ccdy+T7hWxLWKHCSCO0Imc3xbyr jpuente@thinkpad
-      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMFKI1Vo3YbhW2oB0pyJvdqgm22Epu299UeHw2EoopYb jpuente@thinkpadpersonal
 
 runcmd:
   - |
@@ -80,7 +75,7 @@ runcmd:
       cp /snap/openstack/current/etc/manifests/${MICROSTACK_RISK}.yml .
       yq eval-all '. as $item ireduce ({}; . * $item)' ./${MICROSTACK_RISK}.yml ./openstack-manifest-deployment > combined-openstack-manifest
 
-      sunbeam cluster bootstrap --role control,compute -m combined-openstack-manifest
+      sunbeam cluster bootstrap --role control,compute -m combined-openstack-manifest  --accept-defaults
       sunbeam configure -m combined-openstack-manifest --openrc demo-openrc
 
       . <(sunbeam openrc)
@@ -113,3 +108,33 @@ runcmd:
   - adduser ubuntu lxd
   - sudo -iu ubuntu juju bootstrap localhost lxd
 
+
+core:
+   config:
+	 proxy:
+	   proxy_required: false
+	 bootstrap:
+	   management_cidr: 10.164.163.0/24
+	 region: RegionOne
+	 k8s-addons:
+	   loadbalancer: 172.16.1.201-172.16.1.240
+	 external_network:
+	   cidr: 172.16.2.0/24
+	   gateway: 172.16.2.1
+	   range: 172.16.2.2-172.16.2.254
+	   network_type: flat
+	 user:
+	   remote_access_location: local
+	   run_demo_setup: true
+	   username: demo
+	   password: demo
+	   cidr: 192.168.122.0/24
+	   nameservers: 8.8.8.8
+	   security_group_rules: true
+   software:
+	 charms:
+	   glance-k8s:
+		 storage:
+		   local-repository: "30G"
+		 config:
+		   image-size-cap: 15G

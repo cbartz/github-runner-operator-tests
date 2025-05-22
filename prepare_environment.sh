@@ -5,8 +5,8 @@ set -euo pipefail
 
 . .secrets
 
-GITHUB_OWNER=javierdelapuente
-MICROSTACK_RISK=beta
+GITHUB_OWNER=cbartz
+MICROSTACK_RISK=edge
 RAM_MEMORY=20GiB
 CPUS=12
 # Check the glance configuration in openstack-user-data if you want to decrease the disk size...
@@ -28,6 +28,6 @@ lxc init ubuntu:24.04 openstack --vm -c limits.cpu=${CPUS} -c limits.memory=${RA
 echo "Starting at $(date)"
 lxc start openstack
 
-time retry -d 5 -t 5 lxc exec openstack -- cloud-init status --wait
+lxc exec openstack -- cloud-init status --wait
 
 echo "End at $(date)"
