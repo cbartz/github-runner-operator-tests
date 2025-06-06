@@ -18,34 +18,13 @@ snap:
    - snap install yq
 
 write_files:
-  - path: /tmp/openstack-manifest-deployment
+  - path: /home/ubuntu/openstack-manifest-deployment
     permissions: "0644"
     # see in https://canonical.com/microstack/docs/manifest-reference
     # or /snap/openstack/current/lib/python3.12/site-packages/sunbeam/core/manifest.py
     # or https://github.com/canonical/snap-openstack
     content: |
              core:
-               config:
-                 proxy:
-                   proxy_required: false
-                 bootstrap:
-                   management_cidr: ${MANAGEMENT_CIDR}
-                 region: RegionOne
-                 k8s-addons:
-                   loadbalancer: 172.16.1.201-172.16.1.240
-                 external_network:
-                   cidr: 172.16.2.0/24
-                   gateway: 172.16.2.1
-                   range: 172.16.2.2-172.16.2.254
-                   network_type: flat
-                 user:
-                   remote_access_location: local
-                   run_demo_setup: true
-                   username: demo
-                   password: demo
-                   cidr: 192.168.122.0/24
-                   nameservers: 8.8.8.8
-                   security_group_rules: true
                software:
                  charms:
                    glance-k8s:
@@ -71,7 +50,6 @@ runcmd:
       IPADDR=$(ip -4 -j route get 2.2.2.2 | jq -r '.[] | .prefsrc') && echo $IPADDR
       export MANAGEMENT_CIDR="${IPADDR%.*}.0/24" && echo $MANAGEMENT_CIDR
 
-      cat /tmp/openstack-manifest-deployment | envsubst '$MANAGEMENT_CIDR' > openstack-manifest-deployment
       cp /snap/openstack/current/etc/manifests/${MICROSTACK_RISK}.yml .
       yq eval-all '. as $item ireduce ({}; . * $item)' ./${MICROSTACK_RISK}.yml ./openstack-manifest-deployment > combined-openstack-manifest
 
@@ -83,58 +61,24 @@ runcmd:
       openstack subnet set --dns-nameserver 8.8.8.8 --dhcp external-subnet
       openstack flavor create --public m1.builder --ram 1024 --disk 20 --vcpus 2 --public
     EOF
-  - sed -i 's/http_access allow localhost/http_access allow all/' /etc/squid/squid.conf 
-  - systemctl restart squid
   - snap connect jhack:dot-local-share-juju snapd
   - sudo -u ubuntu pipx install tox
   - sudo -u ubuntu pipx ensurepath
   - |
     sudo -i -u ubuntu bash <<'EOF'
     set -x
-    IPADDR=$(ip -4 -j route get 2.2.2.2 | jq -r '.[] | .prefsrc') && echo $IPADDR
     cat <<EOT >> "${HOME}"/.bashrc
     . <( cat ~/demo-openrc )
     export REPOSITORY=${REPOSITORY}
     export GITHUB_TOKEN=${GITHUB_TOKEN}
-    export PROXY_IP=${IPADDR}
     # Hardcoded for now
+    export OPENSTACK_PASSWORD_AMD64=demo
     export REGION=RegionOne
     EOT
     EOF
   # lxd for the integration tests
-  - lxd init --auto
+  # - lxd init --auto
   # ipv6 and juju are problematic
-  - lxc network set lxdbr0 ipv6.address=none bridge.mtu=1400
+  # - lxc network set lxdbr0 ipv6.address=none bridge.mtu=1400
   - adduser ubuntu lxd
   - sudo -iu ubuntu juju bootstrap localhost lxd
-
-
-core:
-   config:
-	 proxy:
-	   proxy_required: false
-	 bootstrap:
-	   management_cidr: 10.164.163.0/24
-	 region: RegionOne
-	 k8s-addons:
-	   loadbalancer: 172.16.1.201-172.16.1.240
-	 external_network:
-	   cidr: 172.16.2.0/24
-	   gateway: 172.16.2.1
-	   range: 172.16.2.2-172.16.2.254
-	   network_type: flat
-	 user:
-	   remote_access_location: local
-	   run_demo_setup: true
-	   username: demo
-	   password: demo
-	   cidr: 192.168.122.0/24
-	   nameservers: 8.8.8.8
-	   security_group_rules: true
-   software:
-	 charms:
-	   glance-k8s:
-		 storage:
-		   local-repository: "30G"
-		 config:
-		   image-size-cap: 15G
